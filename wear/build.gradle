@@ -6,8 +6,8 @@ android {
     buildToolsVersion "23.0.2"
 
     defaultConfig {
-        applicationId "com.example.wear.wearable"
-        minSdkVersion 20
+        applicationId "com.example.wear.wear"
+        minSdkVersion 21
         targetSdkVersion 23
         versionCode 1
         versionName "1.0"
@@ -24,5 +24,4 @@ dependencies {
     compile fileTree(dir: 'libs', include: ['*.jar'])
     compile 'com.google.android.support:wearable:1.3.0'
     compile 'com.google.android.gms:play-services-wearable:8.4.0'
-    compile 'com.android.support:support-v13:23.1.1'
 }
