@@ -20,6 +20,7 @@ import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
+import android.content.res.AssetManager;
 import android.content.res.Resources;
 import android.graphics.Canvas;
 import android.graphics.Color;
@@ -30,6 +31,7 @@ import android.os.Bundle;
 import android.os.Handler;
 import android.os.Message;
 import android.support.wearable.watchface.CanvasWatchFaceService;
+import android.support.wearable.watchface.WatchFaceService;
 import android.support.wearable.watchface.WatchFaceStyle;
 import android.text.format.DateFormat;
 import android.text.format.Time;
@@ -45,6 +47,8 @@ import com.google.android.gms.wearable.Wearable;
 
 import java.lang.ref.WeakReference;
 import java.text.SimpleDateFormat;
+import java.util.Calendar;
+import java.util.Date;
 import java.util.Locale;
 import java.util.TimeZone;
 import java.util.concurrent.TimeUnit;
@@ -54,6 +58,19 @@ import java.util.concurrent.TimeUnit;
  * low-bit ambient mode, the text is drawn without anti-aliasing in ambient mode.
  */
 public class WeatherWatchFaceService extends CanvasWatchFaceService {
+
+    /**
+     * Update rate in milliseconds for normal (not ambient and not mute) mode. We update twice
+     * a second to blink the colons.
+     */
+    private static final long NORMAL_UPDATE_RATE_MS = 500;
+
+    /**
+     * Update rate in milliseconds for mute mode. We update every minute, like in ambient mode.
+     */
+    private static final long MUTE_UPDATE_RATE_MS = TimeUnit.MINUTES.toMillis(1);
+
+
     private static final Typeface NORMAL_TYPEFACE =
             Typeface.create(Typeface.SANS_SERIF, Typeface.NORMAL);
 
@@ -76,22 +93,36 @@ public class WeatherWatchFaceService extends CanvasWatchFaceService {
     private class Engine extends CanvasWatchFaceService.Engine implements DataApi.DataListener,
             GoogleApiClient.ConnectionCallbacks,GoogleApiClient.OnConnectionFailedListener {
         private static final String TAG = "WeatherWatchFaceService";
+
+        /** Alpha value for drawing time when in mute mode. */
+        static final int MUTE_ALPHA = 100;
+
+        /** Alpha value for drawing time when not in mute mode. */
+        static final int NORMAL_ALPHA = 255;
+
+        /** How often {@link #mUpdateTimeHandler} ticks in milliseconds. */
+        long mInteractiveUpdateRateMs = NORMAL_UPDATE_RATE_MS;
+
+
         final Handler mUpdateTimeHandler = new EngineHandler(this);
 
         final BroadcastReceiver mTimeZoneReceiver = new BroadcastReceiver() {
             @Override
             public void onReceive(Context context, Intent intent) {
-                mTime.clear(intent.getStringExtra("time-zone"));
-                mTime.setToNow();
+                mCalendar.setTimeZone(TimeZone.getDefault());
+                initFormats();
+                invalidate();
             }
         };
         boolean mRegisteredTimeZoneReceiver = false;
 
         Paint mBackgroundPaint;
-        Paint mTextPaint;
+        Paint mTimePaint;
 
         boolean mAmbient;
-        Time mTime;
+        //Time mTime;
+        Calendar mCalendar;
+
         int mTapCount;
 
         float mXOffset;
@@ -103,11 +134,28 @@ public class WeatherWatchFaceService extends CanvasWatchFaceService {
          */
         boolean mLowBitAmbient;
 
+        static final String COLON_STRING = ":";
+
+
         GoogleApiClient mGoogleApiClient = new GoogleApiClient.Builder(WeatherWatchFaceService.this)
                 .addConnectionCallbacks(this)
                 .addOnConnectionFailedListener(this)
                 .addApi(Wearable.API)
                 .build();
+        private Paint mDatePaint;
+        private Paint mTemperaturePaint;
+        private float mColonWidth;
+        private float mTimeOffset;
+        private float mDateOffset;
+        private float mInternalDistance;
+        private boolean mMute;
+        SimpleDateFormat mDayOfWeekFormat;
+        java.text.DateFormat mDateFormat;
+        Date mDate;
+        private float mLineHeight;
+        private Paint mColonPaint;
+        private String mAmString;
+        private String mPmString;
 
 
         @Override
@@ -121,15 +169,37 @@ public class WeatherWatchFaceService extends CanvasWatchFaceService {
                     .setAcceptsTapEvents(true)
                     .build());
             Resources resources = WeatherWatchFaceService.this.getResources();
+            AssetManager assets = WeatherWatchFaceService.this.getAssets();
+
             mYOffset = resources.getDimension(R.dimen.digital_y_offset);
+            mLineHeight = resources.getDimension(R.dimen.digital_line_height);
+            mAmString = resources.getString(R.string.digital_am);
+            mPmString = resources.getString(R.string.digital_pm);
 
             mBackgroundPaint = new Paint();
             mBackgroundPaint.setColor(resources.getColor(R.color.background));
 
-            mTextPaint = new Paint();
-            mTextPaint = createTextPaint(resources.getColor(R.color.digital_text));
+            mTimePaint = new Paint();
+            mTimePaint = createTextPaint(resources.getColor(R.color.digital_text));
 
-            mTime = new Time();
+            mColonPaint = createTextPaint(resources.getColor(R.color.digital_colons));
+
+            mDatePaint = new Paint();
+            mDatePaint = createTextPaint(resources.getColor(R.color.weather_bg_color));
+            //, Typeface.createFromAsset(assets,resources.getString(R.string.weather_date_font)));
+
+
+            mTemperaturePaint = new Paint();
+
+            mTemperaturePaint = createTextPaint(resources.getColor(R.color.weather_temperature_color));//,
+              //      Typeface.createFromAsset(assets,resources.getString(R.string.weather_temprature_font)));
+
+            mInternalDistance = resources.getDimension(R.dimen.weather_internal_distance);
+
+           // mTime = new Time();
+            mDate = new Date();
+            mCalendar = Calendar.getInstance();
+            initFormats();
         }
 
         @Override
@@ -155,9 +225,12 @@ public class WeatherWatchFaceService extends CanvasWatchFaceService {
                 registerReceiver();
 
                 // Update time zone in case it changed while we weren't visible.
-                mTime.clear(TimeZone.getDefault().getID());
-                mTime.setToNow();
-               // initFormats();
+                //mTime.clear(TimeZone.getDefault().getID());
+                //mTime.setToNow();
+
+                // Update time zone and date formats, in case they changed while we weren't visible.
+                mCalendar.setTimeZone(TimeZone.getDefault());
+                initFormats();
             } else {
                 unregisterReceiver();
                 if (mGoogleApiClient != null && mGoogleApiClient.isConnected()) {
@@ -172,12 +245,7 @@ public class WeatherWatchFaceService extends CanvasWatchFaceService {
             updateTimer();
         }
 
-        /*private void initFormats() {
-            mDayOfWeekFormat = new SimpleDateFormat("EEEE", Locale.getDefault());
-            mDayOfWeekFormat.setCalendar(mCalendar);
-            mDateFormat = DateFormat.getDateFormat(DigitalWatchFaceService.this);
-            mDateFormat.setCalendar(mCalendar);
-        }*/
+
 
         private void registerReceiver() {
             if (mRegisteredTimeZoneReceiver) {
@@ -208,7 +276,14 @@ public class WeatherWatchFaceService extends CanvasWatchFaceService {
             float textSize = resources.getDimension(isRound
                     ? R.dimen.digital_text_size_round : R.dimen.digital_text_size);
 
-            mTextPaint.setTextSize(textSize);
+            mTimePaint.setTextSize(textSize);
+            mDatePaint.setTextSize(textSize);
+            mColonPaint.setTextSize(textSize);
+
+            mColonWidth = mColonPaint.measureText(COLON_STRING);
+
+            mTimeOffset = (mTimePaint.ascent() + mTimePaint.descent());
+            mDateOffset = (mDatePaint.ascent()+ mTimePaint.descent());
         }
 
         @Override
@@ -229,7 +304,9 @@ public class WeatherWatchFaceService extends CanvasWatchFaceService {
             if (mAmbient != inAmbientMode) {
                 mAmbient = inAmbientMode;
                 if (mLowBitAmbient) {
-                    mTextPaint.setAntiAlias(!inAmbientMode);
+                    mTimePaint.setAntiAlias(!inAmbientMode);
+                    mDatePaint.setAntiAlias(!inAmbientMode);
+                    mColonPaint.setAntiAlias(!mAmbient);
                 }
                 invalidate();
             }
@@ -238,6 +315,40 @@ public class WeatherWatchFaceService extends CanvasWatchFaceService {
             // whether we're in ambient mode), so we may need to start or stop the timer.
             updateTimer();
         }
+
+        @Override
+        public void onInterruptionFilterChanged(int interruptionFilter) {
+            if (Log.isLoggable(TAG, Log.DEBUG)) {
+                Log.d(TAG, "onInterruptionFilterChanged: " + interruptionFilter);
+            }
+            super.onInterruptionFilterChanged(interruptionFilter);
+
+            boolean inMuteMode = interruptionFilter == WatchFaceService.INTERRUPTION_FILTER_NONE;
+            // We only need to update once a minute in mute mode.
+            setInteractiveUpdateRateMs(inMuteMode ? MUTE_UPDATE_RATE_MS : NORMAL_UPDATE_RATE_MS);
+
+            if (mMute != inMuteMode) {
+                mMute = inMuteMode;
+                int alpha = inMuteMode ? MUTE_ALPHA : NORMAL_ALPHA;
+                mDatePaint.setAlpha(alpha);
+                mTimePaint.setAlpha(alpha);
+                mColonPaint.setAlpha(alpha);
+                invalidate();
+            }
+        }
+
+        public void setInteractiveUpdateRateMs(long updateRateMs) {
+            if (updateRateMs == mInteractiveUpdateRateMs) {
+                return;
+            }
+            mInteractiveUpdateRateMs = updateRateMs;
+
+            // Stop and restart the timer so the new update rate takes effect immediately.
+            if (shouldTimerBeRunning()) {
+                updateTimer();
+            }
+        }
+
 
         /**
          * Captures tap event (and tap type) and toggles the background color if the user finishes
@@ -269,7 +380,11 @@ public class WeatherWatchFaceService extends CanvasWatchFaceService {
 
         @Override
         public void onDraw(Canvas canvas, Rect bounds) {
-            // Draw the background.
+
+            long now = System.currentTimeMillis();
+            mCalendar.setTimeInMillis(now);
+            mDate.setTime(now);
+
             if (isInAmbientMode()) {
                 canvas.drawColor(Color.BLACK);
             } else {
@@ -277,11 +392,91 @@ public class WeatherWatchFaceService extends CanvasWatchFaceService {
             }
 
             // Draw H:MM in ambient mode or H:MM:SS in interactive mode.
-            mTime.setToNow();
-            String text = mAmbient
-                    ? String.format("%d:%02d", mTime.hour, mTime.minute)
-                    : String.format("%d:%02d", mTime.hour, mTime.minute);//, mTime.second);
-            canvas.drawText(text, mXOffset, mYOffset, mTextPaint);
+            //mTime.setToNow();
+//            String text = mAmbient
+//                    ? String.format("%d:%02d", mTime.hour, mTime.minute)
+//                    : String.format("%d:%02d", mTime.hour, mTime.minute);//, mTime.second);
+
+
+            
+            // Show colons for the first half of each second so the colons blink on when the time
+            // updates.
+            boolean mShouldDrawColons = (System.currentTimeMillis() % 1000) < 500;
+
+            boolean is24Hour = DateFormat.is24HourFormat(WeatherWatchFaceService.this);
+            String hourString;
+
+            if (is24Hour) {
+                hourString = formatTwoDigitNumber(mCalendar.get(Calendar.HOUR_OF_DAY));
+            } else {
+                int hour = mCalendar.get(Calendar.HOUR);
+                if (hour == 0) {
+                    hour = 12;
+                }
+                hourString = String.valueOf(hour);
+            }
+
+
+            String minString = formatTwoDigitNumber(mCalendar.get(Calendar.MINUTE));
+
+            float hourWidth = mTimePaint.measureText(hourString);
+            float minWidth = mTimePaint.measureText(minString);
+
+            //float x = (bounds.width() - (hourWidth +minWidth + mColonWidth))/2;
+            float x = mXOffset;
+            float y = ((canvas.getHeight()-mTimeOffset)/2);
+
+            canvas.drawText(hourString, x, mYOffset, mTimePaint);
+            x += hourWidth;
+            if (isInAmbientMode() || mMute|| mShouldDrawColons) {
+                canvas.drawText(COLON_STRING, x, mYOffset, mColonPaint);
+            }
+            x += mColonWidth;
+            canvas.drawText(minString, x, mYOffset, mTimePaint);
+            x += minWidth;
+
+            y += mInternalDistance - mDateOffset / 2;
+
+            // Draw the background.
+            // In unmuted interactive mode, draw a second blinking colon followed by the seconds.
+            // Otherwise, if we're in 12-hour mode, draw AM/PM
+
+            // In unmuted interactive mode, draw a second blinking colon followed by the seconds.
+            // Otherwise, if we're in 12-hour mode, draw AM/PM
+            if (!is24Hour) {
+                x += mColonWidth;
+                canvas.drawText(getAmPmString(
+                        mCalendar.get(Calendar.AM_PM)), x, mYOffset, mTimePaint);
+            }
+
+            // Only render the day of week and date if there is no peek card, so they do not bleed
+            // into each other in ambient mode.
+            if (getPeekCardPosition().isEmpty()) {
+                // Day of week
+                canvas.drawText(
+                        mDayOfWeekFormat.format(mDate),
+                        mXOffset, mYOffset + mLineHeight, mDatePaint);
+                // Date
+                canvas.drawText(
+                        mDateFormat.format(mDate),
+                        mXOffset, mYOffset + mLineHeight * 2, mDatePaint);
+            }
+        }
+
+        private String formatTwoDigitNumber(int hour) {
+            return String.format("%02d", hour);
+        }
+
+
+        private String getAmPmString(int amPm) {
+            return amPm == Calendar.AM ? mAmString : mPmString;
+        }
+
+        private void initFormats() {
+            mDayOfWeekFormat = new SimpleDateFormat("EEEE", Locale.getDefault());
+            mDayOfWeekFormat.setCalendar(mCalendar);
+            mDateFormat = DateFormat.getDateFormat(WeatherWatchFaceService.this);
+            mDateFormat.setCalendar(mCalendar);
         }
 
         /**
