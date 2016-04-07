@@ -405,6 +405,11 @@ public class WeatherWatchFaceService extends CanvasWatchFaceService {
 
             boolean is24Hour = DateFormat.is24HourFormat(WeatherWatchFaceService.this);
             String hourString;
+            String minString = formatTwoDigitNumber(mCalendar.get(Calendar.MINUTE));
+            float AMPMStringWidth = mTimePaint.measureText(mAmString);
+
+            float minWidth = mTimePaint.measureText(minString);
+
 
             if (is24Hour) {
                 hourString = formatTwoDigitNumber(mCalendar.get(Calendar.HOUR_OF_DAY));
@@ -415,15 +420,12 @@ public class WeatherWatchFaceService extends CanvasWatchFaceService {
                 }
                 hourString = String.valueOf(hour);
             }
-
-
-            String minString = formatTwoDigitNumber(mCalendar.get(Calendar.MINUTE));
-
             float hourWidth = mTimePaint.measureText(hourString);
-            float minWidth = mTimePaint.measureText(minString);
 
-            //float x = (bounds.width() - (hourWidth +minWidth + mColonWidth))/2;
-            float x = mXOffset;
+            float x = (bounds.width() - (hourWidth +minWidth + mColonWidth +mColonWidth+AMPMStringWidth))/2;
+            //Log.d(TAG, "bounds Width , hourWidth, minWidth, mColonWidth, canvas width,x" + bounds.width() + ", "
+             //                   + hourWidth + ", " + minWidth + ", " + mColonWidth + ", " + canvas.getWidth()+", " + x + ", "  + AMPMStringWidth);
+            //float x = (canvas.getWidth() - (mXOffset))/2;
             float y = ((canvas.getHeight()-mTimeOffset)/2);
 
             canvas.drawText(hourString, x, mYOffset, mTimePaint);
