@@ -7,4 +7,7 @@
     <dimen name="digital_y_offset">90dp</dimen>
     <dimen name="weather_internal_distance">14dp</dimen>
     <dimen name="digital_line_height">25dp</dimen>
+    <dimen name="digital_date_text_size_round">20dp</dimen>
+    <dimen name="digital_date_text_size">15dp</dimen>
+
 </resources>

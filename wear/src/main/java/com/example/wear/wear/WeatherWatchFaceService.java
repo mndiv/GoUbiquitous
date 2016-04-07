@@ -185,7 +185,7 @@ public class WeatherWatchFaceService extends CanvasWatchFaceService {
             mColonPaint = createTextPaint(resources.getColor(R.color.digital_colons));
 
             mDatePaint = new Paint();
-            mDatePaint = createTextPaint(resources.getColor(R.color.weather_bg_color));
+            mDatePaint = createTextPaint(resources.getColor(R.color.date_bg_color));
             //, Typeface.createFromAsset(assets,resources.getString(R.string.weather_date_font)));
 
 
@@ -273,12 +273,15 @@ public class WeatherWatchFaceService extends CanvasWatchFaceService {
             boolean isRound = insets.isRound();
             mXOffset = resources.getDimension(isRound
                     ? R.dimen.digital_x_offset_round : R.dimen.digital_x_offset);
-            float textSize = resources.getDimension(isRound
+            float timeTextSize = resources.getDimension(isRound
                     ? R.dimen.digital_text_size_round : R.dimen.digital_text_size);
 
-            mTimePaint.setTextSize(textSize);
-            mDatePaint.setTextSize(textSize);
-            mColonPaint.setTextSize(textSize);
+            float dateTextSize = resources.getDimension(isRound
+                    ? R.dimen.digital_date_text_size_round : R.dimen.digital_date_text_size);
+
+            mTimePaint.setTextSize(timeTextSize);
+            mDatePaint.setTextSize(dateTextSize);
+            mColonPaint.setTextSize(timeTextSize);
 
             mColonWidth = mColonPaint.measureText(COLON_STRING);
 
@@ -378,6 +381,8 @@ public class WeatherWatchFaceService extends CanvasWatchFaceService {
 */
 
 
+
+
         @Override
         public void onDraw(Canvas canvas, Rect bounds) {
 
@@ -423,9 +428,6 @@ public class WeatherWatchFaceService extends CanvasWatchFaceService {
             float hourWidth = mTimePaint.measureText(hourString);
 
             float x = (bounds.width() - (hourWidth +minWidth + mColonWidth +mColonWidth+AMPMStringWidth))/2;
-            //Log.d(TAG, "bounds Width , hourWidth, minWidth, mColonWidth, canvas width,x" + bounds.width() + ", "
-             //                   + hourWidth + ", " + minWidth + ", " + mColonWidth + ", " + canvas.getWidth()+", " + x + ", "  + AMPMStringWidth);
-            //float x = (canvas.getWidth() - (mXOffset))/2;
             float y = ((canvas.getHeight()-mTimeOffset)/2);
 
             canvas.drawText(hourString, x, mYOffset, mTimePaint);
@@ -454,14 +456,23 @@ public class WeatherWatchFaceService extends CanvasWatchFaceService {
             // Only render the day of week and date if there is no peek card, so they do not bleed
             // into each other in ambient mode.
             if (getPeekCardPosition().isEmpty()) {
+
+                String dateString = mDayOfWeekFormat.format(mDate);
+                float dateWidth = mDatePaint.measureText(dateString);
+
+
+                x = (bounds.width() - dateWidth)/2;
+                Log.d(TAG,"bounds Width, dateWidth , x " + bounds.width() + ", " + dateWidth + ", " + x);
                 // Day of week
                 canvas.drawText(
                         mDayOfWeekFormat.format(mDate),
-                        mXOffset, mYOffset + mLineHeight, mDatePaint);
+                        x, mYOffset + mLineHeight, mDatePaint);
+
+                Log.d(TAG, "dayofWeek " + mDayOfWeekFormat.format(mDate));
                 // Date
-                canvas.drawText(
-                        mDateFormat.format(mDate),
-                        mXOffset, mYOffset + mLineHeight * 2, mDatePaint);
+//                canvas.drawText(
+//                        mDateFormat.format(mDate),
+//                        mXOffset, mYOffset + mLineHeight * 2, mDatePaint);
             }
         }
 
@@ -475,7 +486,7 @@ public class WeatherWatchFaceService extends CanvasWatchFaceService {
         }
 
         private void initFormats() {
-            mDayOfWeekFormat = new SimpleDateFormat("EEEE", Locale.getDefault());
+            mDayOfWeekFormat = new SimpleDateFormat("EEE MMM dd", Locale.getDefault());
             mDayOfWeekFormat.setCalendar(mCalendar);
             mDateFormat = DateFormat.getDateFormat(WeatherWatchFaceService.this);
             mDateFormat.setCalendar(mCalendar);
