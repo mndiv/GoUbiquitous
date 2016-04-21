@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package com.example.wear.wear;
+package com.example.android.sunshine.app;
 
 import android.content.BroadcastReceiver;
 import android.content.Context;
@@ -34,11 +34,11 @@ import android.support.wearable.watchface.CanvasWatchFaceService;
 import android.support.wearable.watchface.WatchFaceService;
 import android.support.wearable.watchface.WatchFaceStyle;
 import android.text.format.DateFormat;
-import android.text.format.Time;
 import android.util.Log;
 import android.view.SurfaceHolder;
 import android.view.WindowInsets;
 
+import com.example.wear.wear.R;
 import com.google.android.gms.common.ConnectionResult;
 import com.google.android.gms.common.api.GoogleApiClient;
 import com.google.android.gms.wearable.DataApi;
