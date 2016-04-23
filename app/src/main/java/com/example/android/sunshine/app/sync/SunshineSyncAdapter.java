@@ -44,6 +44,7 @@ import com.google.android.gms.common.api.ResultCallback;
 import com.google.android.gms.wearable.DataApi;
 import com.google.android.gms.wearable.DataMap;
 import com.google.android.gms.wearable.PutDataMapRequest;
+import com.google.android.gms.wearable.PutDataRequest;
 import com.google.android.gms.wearable.Wearable;
 
 import org.json.JSONArray;
@@ -63,7 +64,7 @@ import java.util.Vector;
 import java.util.concurrent.ExecutionException;
 
 public class SunshineSyncAdapter extends AbstractThreadedSyncAdapter implements GoogleApiClient.OnConnectionFailedListener, GoogleApiClient.ConnectionCallbacks {
-    private static final String WEATHER_PATH = "/WeatherWatchFace/Config";
+    private static final String WEARABLE_DATA_PATH = "/wearable_data";
     public final String LOG_TAG = SunshineSyncAdapter.class.getSimpleName();
     public static final String ACTION_DATA_UPDATED =
             "com.example.android.sunshine.app.ACTION_DATA_UPDATED";
@@ -354,8 +355,8 @@ public class SunshineSyncAdapter extends AbstractThreadedSyncAdapter implements 
                 low = temperatureObject.getDouble(OWM_MIN);
 
                 //if its today use it for android wear watchface
-                if(i==0)
-                    sendTodayForecast(high, low,weatherId);
+//                if(i==0)
+//                    sendTodayForecast(high, low,weatherId);
 
 
                 ContentValues weatherValues = new ContentValues();
@@ -386,6 +387,7 @@ public class SunshineSyncAdapter extends AbstractThreadedSyncAdapter implements 
                         WeatherContract.WeatherEntry.COLUMN_DATE + " <= ?",
                         new String[] {Long.toString(dayTime.setJulianDay(julianStartDay-1))});
 
+                updateWearable();
                 updateWidgets();
                 updateMuzei();
                 notifyWeather();
@@ -400,6 +402,58 @@ public class SunshineSyncAdapter extends AbstractThreadedSyncAdapter implements 
         }
     }
 
+    private void updateWearable(){
+        Context context = getContext();
+        String locationQuery = Utility.getPreferredLocation(context);
+        Uri weatherUri = WeatherContract.WeatherEntry.buildWeatherLocationWithDate(locationQuery, System.currentTimeMillis());
+
+        // we'll query our contentProvider, as always
+        Cursor cursor = context.getContentResolver().query(weatherUri, NOTIFY_WEATHER_PROJECTION, null, null, null);
+        if (cursor.moveToFirst()) {
+            int weatherId = cursor.getInt(INDEX_WEATHER_ID);
+            double high = cursor.getDouble(INDEX_MAX_TEMP);
+            double low = cursor.getDouble(INDEX_MIN_TEMP);
+
+
+            Log.d("TAG","SENDING WEATHER DATA" );
+            // Create a DataMap object and send it to the data layer
+            DataMap dataMap = new DataMap();
+            dataMap.putLong("time", new Date().getTime());
+            dataMap.putDouble("high", cursor.getDouble(INDEX_MAX_TEMP));
+            dataMap.putDouble("low", cursor.getDouble(INDEX_MIN_TEMP));
+            dataMap.putLong("id", cursor.getInt(INDEX_WEATHER_ID));
+            //Requires a new thread to avoid blocking the UI
+            new SendToDataLayerThread(WEARABLE_DATA_PATH, dataMap).start();
+
+        }
+    }
+
+    class SendToDataLayerThread extends Thread {
+        String path;
+        DataMap dataMap;
+
+        // Constructor for sending data objects to the data layer
+        SendToDataLayerThread(String p, DataMap data) {
+            path = p;
+            dataMap = data;
+        }
+
+        public void run() {
+            // Construct a DataRequest and send over the data layer
+            PutDataMapRequest putDMR = PutDataMapRequest.create(path);
+            putDMR.getDataMap().putAll(dataMap);
+            PutDataRequest request = putDMR.asPutDataRequest();
+            DataApi.DataItemResult result = Wearable.DataApi.putDataItem(mGoogleApiClient, request).await();
+            Log.d(LOG_TAG,"THREAD WEATHER DATA" );
+            if (result.getStatus().isSuccess()) {
+                Log.v(LOG_TAG, "DataMap: " + dataMap + " sent successfully to data layer ");
+            } else {
+                // Log an error
+                Log.v(LOG_TAG, "ERROR: failed to send DataMap to data layer");
+            }
+        }
+    }
+/*
     private void sendTodayForecast(double high, double low, int weatherId) {
 
         PutDataMapRequest putDataMapRequest  = PutDataMapRequest.create(WEATHER_PATH);
@@ -435,7 +489,7 @@ public class SunshineSyncAdapter extends AbstractThreadedSyncAdapter implements 
                     }
                });
     }
-
+*/
     private void updateWidgets() {
         Context context = getContext();
         // Setting the package ensures that only components in our app will receive the broadcast
