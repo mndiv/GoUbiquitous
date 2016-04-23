@@ -400,7 +400,7 @@ public class SunshineSyncAdapter extends AbstractThreadedSyncAdapter implements 
         }
     }
 
-    private void sendTodayForecast(Double high, Double low, int weatherId) {
+    private void sendTodayForecast(double high, double low, int weatherId) {
 
         PutDataMapRequest putDataMapRequest  = PutDataMapRequest.create(WEATHER_PATH);
         DataMap config = putDataMapRequest.getDataMap();
@@ -408,8 +408,8 @@ public class SunshineSyncAdapter extends AbstractThreadedSyncAdapter implements 
         String lowString = Utility.formatTemperature(getContext(), low);
         String highString = Utility.formatTemperature(getContext(),high);
 
-        //config.putString("HIGH_TEMPERATURE", highString);
-        //config.putString("LOW_TEMPERATURE   ", lowString);
+        config.putString("HIGH_TEMPERATURE", highString);
+        config.putString("LOW_TEMPERATURE", lowString);
 
         config.putLong("time", new Date().getTime());
         //config.putInt("WeatherId ");

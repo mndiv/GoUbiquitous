@@ -92,8 +92,8 @@ public class WeatherWatchFaceService extends CanvasWatchFaceService {
         private static final String TAG = "WeatherWatchFaceService";
         private static final String WEATHER_PATH = "/WeatherWatchFace/Config";
 
-        private static final String HIGH_TEMPERATURE = "high_temperature";
-        private static final String LOW_TEMPERATURE = "low_temperature";
+        private static final String HIGH_TEMPERATURE = "HIGH_TEMPERATURE";
+        private static final String LOW_TEMPERATURE = "LOW_TEMPERATURE";
 
         private static final String SYNC_NOW = "/sync_now";
 
@@ -241,7 +241,7 @@ public class WeatherWatchFaceService extends CanvasWatchFaceService {
                 if (mGoogleApiClient != null && mGoogleApiClient.isConnected()) {
                     Wearable.DataApi.removeListener(mGoogleApiClient, this);
                     mGoogleApiClient.disconnect();
-                    Log.d("Tag", "Google API Client disconnected");
+                    Log.d(TAG, "Google API Client disconnected");
                 }
 
             }
@@ -524,7 +524,7 @@ public class WeatherWatchFaceService extends CanvasWatchFaceService {
         @Override
         public void onConnected(Bundle bundle) {
 
-            Wearable.DataApi.addListener(mGoogleApiClient,this);
+            Wearable.DataApi.addListener(mGoogleApiClient,Engine.this);
             Log.d(TAG, "GoogleApiClient is Connected");
         }
 
