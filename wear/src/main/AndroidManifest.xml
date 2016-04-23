@@ -13,6 +13,9 @@
         android:supportsRtl="true"
         android:theme="@android:style/Theme.DeviceDefault">
 
+        <!--To run on pre-22, set required to false -->
+        <uses-library android:name="com.google.android.wearable" android:required="false" />
+
         <service
             android:name="com.example.android.sunshine.app.WeatherWatchFaceService"
             android:label="@string/my_digital_name"

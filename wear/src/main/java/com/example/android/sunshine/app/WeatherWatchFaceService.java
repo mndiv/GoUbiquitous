@@ -547,6 +547,7 @@ public class WeatherWatchFaceService extends CanvasWatchFaceService {
                             DataMapItem dataMapItem = DataMapItem.fromDataItem(event.getDataItem());
                             mHightTemp = dataMapItem.getDataMap().getString(HIGH_TEMPERATURE);
                             mLowTemp = dataMapItem.getDataMap().getString(LOW_TEMPERATURE);
+                            Log.d(TAG, "Data time : " + dataMapItem.getDataMap().getLong("time"));
 
                             Log.e(TAG,"From Phone: highTemp : " + mHightTemp + "\t LowTemp : " + mLowTemp );
 

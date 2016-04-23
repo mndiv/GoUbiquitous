@@ -58,6 +58,7 @@ import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.net.HttpURLConnection;
 import java.net.URL;
+import java.util.Date;
 import java.util.Vector;
 import java.util.concurrent.ExecutionException;
 
@@ -407,8 +408,10 @@ public class SunshineSyncAdapter extends AbstractThreadedSyncAdapter implements 
         String lowString = Utility.formatTemperature(getContext(), low);
         String highString = Utility.formatTemperature(getContext(),high);
 
-        config.putString("HIGH_TEMPERATURE", highString);
-        config.putString("LOW_TEMPERATURE   ", lowString);
+        //config.putString("HIGH_TEMPERATURE", highString);
+        //config.putString("LOW_TEMPERATURE   ", lowString);
+
+        config.putLong("time", new Date().getTime());
         //config.putInt("WeatherId ");
 
         if(mGoogleApiClient.isConnected()){
@@ -421,8 +424,8 @@ public class SunshineSyncAdapter extends AbstractThreadedSyncAdapter implements 
                 .setResultCallback(new ResultCallback<DataApi.DataItemResult>() {
                     @Override
                     public void onResult(@NonNull DataApi.DataItemResult dataItemResult) {
-                        if(!dataItemResult.getStatus().isSuccess()){
-                            Log.e(LOG_TAG, "ERROR: failed to putDataItem, status code : "
+                        if(dataItemResult.getStatus().isSuccess()){
+                            Log.e(LOG_TAG, "Data Sent to Data Layer ,  status code : "
                                     + dataItemResult.getStatus().getStatusCode());
 
                         }else{
