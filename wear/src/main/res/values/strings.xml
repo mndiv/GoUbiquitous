@@ -1,9 +1,12 @@
 <resources
     xmlns:xliff="http://schemas.android.com/apk/res-auto">
-    <string name="app_name">Wear</string>
-    <string name="my_digital_name">My Digital</string>
-    <string name="digital_am">AM</string>
-    <string name="digital_pm">PM</string>
-    <!-- Date format [CHAR LIMIT=NONE] -->
-    <string name="format_full_friendly_date"><xliff:g id="month">%1$s</xliff:g>, <xliff:g id="day">%2$s</xliff:g></string>
+  <string name="app_name">Wear</string>
+  <string name="my_digital_name">My Digital</string>
+  <string name="digital_am">AM</string>
+  <string name="digital_pm">PM</string>
+  <!-- Date format [CHAR LIMIT=NONE] -->
+  <string name="format_full_friendly_date"><xliff:g id="month">%1$s</xliff:g>, <xliff:g id="day">%2$s</xliff:g></string>
+  <!-- Strings for formatting weather-related data -->
+  <!-- Temperature format [CHAR LIMIT=5 -->
+  <string name="format_temperature"><xliff:g id="temp">%1.0f</xliff:g>\u00B0</string>
 </resources>
